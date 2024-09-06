@@ -1,0 +1,56 @@
+service: serverless-lambda-template
+provider:
+  name: aws
+  runtime: python3.8
+  region: ${self:custom.awsAccountRegion}
+  iamRoleStatements:
+    # SSM GetParameterByPath Access
+    - Effect: Allow
+      Action:
+        - "ssm:GetParametersByPath"
+      Resource: "arn:aws:ssm:*:${self:custom.awsAccount}:parameter/*"
+  endpointType: regional
+  # if you are setting lambda as an API Gateway trigger
+  apiGateway:
+    restApiId: ${self:custom.apiGatewayRestApiId}
+    restApiRootResourceId: ${self:custom.apiGatewayRestApiRootResourceId}
+custom:
+  pythonRequirements:
+    dockerizePip: true
+    slim: true
+  awsAccount: ${env:AWS_ACCOUNT}
+  awsAccountRegion: ${env:AWS_REGION}
+  layerArn: ${env:LAYER_ARN}
+  sqsArn: ${env:SQS_ARN}
+  apiGatewayRestApiId: ${env:API_GATEWAY_REST_API_ID}
+  apiGatewayRestApiRootResourceId: ${env:API_GATEWAY_REST_API_ROOT_RESOURCE_ID}
+package:
+  individually: false
+  exclude:
+    - package.json
+    - package-lock.json
+    - node_modules/**
+functions:
+  serverless-lambda-template:
+    name: serverless-lambda-template
+    handler: handler.handle
+    timeout: 27
+    # if you want to attach a layer to this lambda (eg. a layer that contains common utility functions)
+    layers:
+      - ${self:custom.layerArn}
+    events:
+      # if you are setting lambda as a SQS trigger
+      - sqs: ${self:custom.sqsArn}
+      # if you are setting lambda as an HTTP API Gateway trigger
+      - http:
+          path: /user/login/
+          method: GET
+          cors: true
+      - http:
+          path: /user/signup/
+          method: POST
+          cors: true
+plugins:
+  - serverless-python-requirements
+  - serverless-aws-latest-layer-version
+  - serverless-plugin-git-variables
